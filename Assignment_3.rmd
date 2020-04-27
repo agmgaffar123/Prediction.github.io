@@ -1,0 +1,169 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+# Prediction Assignment Writeup
+
+## Background
+
+In this project,I will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+### Data loading and processing
+```{r}
+setwd("C:/Users/rr111836/Desktop/Studies/Coursera/Assignment 3")
+
+library(readr)
+training<-read.csv("pml-training (1).csv",na.strings = c("NA", "#DIV/0!", ""))
+testing <- read.csv("pml-testing (1).csv",na.strings = c("NA", "#DIV/0!", ""))
+```
+
+### Loading Required package
+
+```{r}
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(corrplot)
+set.seed(301)
+```
+
+
+
+
+
+
+### Removing columns that contains NA values and irrelevant variables and Partioning the training set into training and crossvalidation datasets
+
+```{r}
+inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+TrainSet <- training[inTrain, ]
+TestSet  <- training[-inTrain, ]
+dim(TrainSet)
+```
+### remove variables with Nearly Zero Variance
+
+```{r}
+
+n0var <- nearZeroVar(TrainSet)
+TrainSet <- TrainSet[, -n0var]
+TestSet  <- TestSet[, -n0var]
+dim(TrainSet)
+```
+```{r}
+dim(TestSet)
+```
+
+###Remove Variables that are mostly NAs
+
+```{r}
+AllNA <- sapply(TrainSet, function(x) mean(is.na(x))) > 0.95
+TrainSet <- TrainSet[, AllNA==FALSE]
+TestSet <- TestSet[, AllNA==FALSE]
+dim(TrainSet)
+```
+
+```{r}
+dim(TestSet)
+```
+
+
+```{r}
+# remove identification only variables (columns 1 to 5)
+TrainSet <- TrainSet[, -(1:5)]
+TestSet  <- TestSet[, -(1:5)]
+dim(TrainSet)
+```
+
+###check correlation among variables
+
+
+
+```{r}
+M <- cor(TrainSet[, -54])
+corrplot(M, method="circle")
+```
+
+### Random Forest method
+
+```{r}
+# plot matrix results
+# model fit
+set.seed(3408)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+modFitRandForest <- train(classe ~ ., data=TrainSet, method="rf",
+                          trControl=controlRF)
+modFitRandForest$finalModel
+```
+
+### Prediction
+
+```{r}
+predictRandForest <- predict(modFitRandForest, newdata=TestSet)
+confMatRandForest <- confusionMatrix(predictRandForest, TestSet$classe)
+confMatRandForest
+```
+
+### Plot Matrix Results
+
+```{r}
+plot(confMatRandForest$table, col = confMatRandForest$byClass, 
+     main = paste("Random Forest - Accuracy =",
+                  round(confMatRandForest$overall['Accuracy'], 4)))
+```
+
+### Decision Tree
+
+```{r}
+# model fit
+set.seed(3408)
+modFitDecTree <- rpart(classe ~ ., data=TrainSet, method="class")
+fancyRpartPlot(modFitDecTree)
+```
+
+
+### Prediction on Test dataset
+
+```{r}
+predictDecTree <- predict(modFitDecTree, newdata=TestSet, type="class")
+confMatDecTree <- confusionMatrix(predictDecTree, TestSet$classe)
+confMatDecTree
+```
+
+### Plot matrix results
+
+```{r}
+plot(confMatDecTree$table, col = confMatDecTree$byClass, 
+     main = paste("Decision Tree - Accuracy =",
+                  round(confMatDecTree$overall['Accuracy'], 4)))
+```
+
+
+### Applying the selected Model to the Test Data
+
+```{r}
+predictTEST <- predict(modFitRandForest, newdata=testing)
+predictTEST
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
